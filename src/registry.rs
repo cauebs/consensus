@@ -1,11 +1,15 @@
-use std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+use std::{
+    fs,
+    net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{deserialize_from, serialize_into, Peer};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
     Register(SocketAddr),
     GetPeers,
@@ -17,14 +21,30 @@ pub enum Response {
     Peers(Vec<Peer>),
 }
 
-#[derive(Default)]
 pub struct Server {
-    peers: Vec<Peer>,
+    peers_file: PathBuf,
 }
 
 impl Server {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(peers_file: impl AsRef<Path>) -> Result<Self> {
+        let server = Self {
+            peers_file: peers_file.as_ref().to_owned(),
+        };
+
+        if !server.peers_file.exists() {
+            server.write_peers(&[])?;
+        }
+        Ok(server)
+    }
+
+    fn read_peers(&self) -> Result<Vec<Peer>> {
+        let file_contents = fs::read(&self.peers_file)?;
+        Ok(serde_json::from_slice(&file_contents)?)
+    }
+
+    fn write_peers(&self, peers: &[Peer]) -> Result<()> {
+        let file_contents = serde_json::to_vec_pretty(&peers)?;
+        Ok(fs::write(&self.peers_file, &file_contents)?)
     }
 
     pub fn run(&mut self, addr: impl ToSocketAddrs) -> Result<()> {
@@ -34,10 +54,10 @@ impl Server {
 
             let response = match request {
                 Request::Register(addr) => {
-                    self.register(addr);
+                    self.register(addr)?;
                     Response::Registered
                 }
-                Request::GetPeers => Response::Peers(self.peers.clone()),
+                Request::GetPeers => Response::Peers(self.read_peers()?),
             };
 
             serialize_into(&client, &response)?;
@@ -45,13 +65,13 @@ impl Server {
         unreachable!()
     }
 
-    fn register(&mut self, peer_addr: SocketAddr) {
-        let id = self
-            .peers
-            .last()
-            .map(|peer| peer.id + 1)
-            .unwrap_or_default();
-        self.peers.push(Peer::new(id, peer_addr));
+    fn register(&mut self, peer_addr: SocketAddr) -> Result<()> {
+        let mut peers = self.read_peers()?;
+
+        let id = peers.last().map(|peer| peer.id + 1).unwrap_or_default();
+        peers.push(Peer::new(id, peer_addr));
+
+        self.write_peers(&peers)
     }
 }
 
