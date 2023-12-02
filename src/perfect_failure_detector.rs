@@ -19,7 +19,7 @@ pub struct PerfectFailureDetector {
 
 #[derive(Serialize, Deserialize)]
 pub struct Heartbeat {
-    peer_id: PeerId,
+    pub peer_id: PeerId,
 }
 
 impl PerfectFailureDetector {
@@ -61,13 +61,18 @@ impl PerfectFailureDetector {
                 let confirmed_alive = self.set_alive(peer.id, false);
                 if confirmed_alive || !known_peers.contains(&peer.id) {
                     known_peers.insert(peer.id);
-                    if peer.send(Message::RequestHeartbeat).is_ok() {
+                    if peer
+                        .send(Message::RequestHeartbeat::<()> {
+                            requester: self.bind_addr,
+                        })
+                        .is_ok()
+                    {
                         continue;
                     }
                 }
 
                 assumed_dead.insert(peer.id);
-                broadcast(Message::InformCrash(peer.id), peers.iter().cloned());
+                broadcast(Message::InformCrash::<()>(peer.id), peers.iter().cloned());
             }
 
             sleep(self.timeout);

@@ -3,9 +3,11 @@ use std::{
     net::{SocketAddr, TcpStream, ToSocketAddrs},
 };
 
+use hierarchical_consensus::ConsensusEvent;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod hierarchical_consensus;
 pub mod perfect_failure_detector;
 pub mod registry;
 
@@ -24,9 +26,10 @@ pub struct Peer {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum Message {
-    RequestHeartbeat,
+pub enum Message<T: Clone> {
+    RequestHeartbeat { requester: SocketAddr },
     InformCrash(PeerId),
+    ConsensusEvent(ConsensusEvent<T>),
 }
 
 impl Peer {

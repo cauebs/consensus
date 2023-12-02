@@ -7,7 +7,7 @@ use std::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{deserialize_from, serialize_into, Peer};
+use crate::{deserialize_from, serialize_into, Peer, PeerId};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
@@ -17,7 +17,7 @@ pub enum Request {
 
 #[derive(Serialize, Deserialize)]
 pub enum Response {
-    Registered,
+    Registered(PeerId),
     Peers(Vec<Peer>),
 }
 
@@ -54,8 +54,8 @@ impl Server {
 
             let response = match request {
                 Request::Register(addr) => {
-                    self.register(addr)?;
-                    Response::Registered
+                    let id = self.register(addr)?;
+                    Response::Registered(id)
                 }
                 Request::GetPeers => Response::Peers(self.read_peers()?),
             };
@@ -65,13 +65,15 @@ impl Server {
         unreachable!()
     }
 
-    fn register(&mut self, peer_addr: SocketAddr) -> Result<()> {
+    fn register(&mut self, peer_addr: SocketAddr) -> Result<PeerId> {
         let mut peers = self.read_peers()?;
 
         let id = peers.last().map(|peer| peer.id + 1).unwrap_or_default();
         peers.push(Peer::new(id, peer_addr));
 
-        self.write_peers(&peers)
+        self.write_peers(&peers)?;
+
+        Ok(id)
     }
 }
 
@@ -84,14 +86,15 @@ impl Client {
         Self { server_addr }
     }
 
-    pub fn register(&self, peer_addr: SocketAddr) -> Result<()> {
+    pub fn register(&self, peer_addr: SocketAddr) -> Result<PeerId> {
         let server = TcpStream::connect(self.server_addr)?;
         serialize_into(&server, Request::Register(peer_addr))?;
+
         let response: Response = deserialize_from(&server)?;
-        match response {
-            Response::Registered => Ok(()),
-            _ => panic!(),
-        }
+        let Response::Registered(id) = response else {
+            panic!()
+        };
+        Ok(id)
     }
 
     pub fn get_peers(&self) -> Result<Vec<Peer>> {
