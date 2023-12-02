@@ -10,7 +10,9 @@ pub mod perfect_failure_detector;
 pub mod registry;
 
 pub fn parse_addr(addr: impl ToSocketAddrs) -> Option<SocketAddr> {
-    addr.to_socket_addrs().ok().and_then(|mut addresses| addresses.next())
+    addr.to_socket_addrs()
+        .ok()
+        .and_then(|mut addresses| addresses.next())
 }
 
 pub type PeerId = usize;
@@ -66,10 +68,7 @@ pub fn try_broadcast<M: Serialize>(
     }
 }
 
-pub fn broadcast<M: Serialize>(
-    message: M,
-    peers: impl Iterator<Item = Peer>,
-) {
+pub fn broadcast<M: Serialize>(message: M, peers: impl Iterator<Item = Peer>) {
     for peer in peers {
         let _ = peer.send(&message);
     }
