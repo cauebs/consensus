@@ -4,6 +4,8 @@ use anyhow::Result;
 use consensus::registry;
 
 fn main() -> Result<()> {
+    env_logger::init();
+    
     let mut args = args().skip(1);
     let usage = "Usage: registry <host>:<port> <peers-file>";
 

@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
+use log::trace;
 use serde::{Deserialize, Serialize};
 
 use crate::{deserialize_from, serialize_into, Peer, PeerId};
@@ -38,11 +39,13 @@ impl Server {
     }
 
     fn read_peers(&self) -> Result<Vec<Peer>> {
+        trace!("Server reading peers");
         let file_contents = fs::read(&self.peers_file)?;
         Ok(serde_json::from_slice(&file_contents)?)
     }
 
     fn write_peers(&self, peers: &[Peer]) -> Result<()> {
+        trace!("Server writing peers");
         let file_contents = serde_json::to_vec_pretty(&peers)?;
         Ok(fs::write(&self.peers_file, &file_contents)?)
     }
@@ -73,6 +76,7 @@ impl Server {
 
         self.write_peers(&peers)?;
 
+        trace!("Server registered with id {}", id);
         Ok(id)
     }
 }
@@ -94,6 +98,8 @@ impl Client {
         let Response::Registered(id) = response else {
             panic!()
         };
+
+        trace!("Client registered with id {}", id);
         Ok(id)
     }
 

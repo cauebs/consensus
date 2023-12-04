@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     io::{Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
 };
@@ -26,7 +27,7 @@ pub struct Peer {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum Message<T: Clone> {
+pub enum Message<T: Clone + Debug> {
     RequestHeartbeat { requester: SocketAddr },
     InformCrash(PeerId),
     ConsensusEvent(ConsensusEvent<T>),

@@ -3,29 +3,31 @@ use crate::{
     Message, PeerId,
 };
 use anyhow::Result;
+use log::trace;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::HashSet,
+    fmt::Debug,
     net::{SocketAddr, TcpListener, TcpStream},
 };
 
 type Round = usize;
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Proposal<T: Clone> {
+pub struct Proposal<T: Clone + Debug> {
     value: T,
     proposer: PeerId,
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum ConsensusEvent<T: Clone> {
+pub enum ConsensusEvent<T: Clone + Debug> {
     Start,
     Decided(Proposal<T>),
 }
 
 pub struct ConsensusAgent<T, F, C>
 where
-    T: Clone,
+    T: Clone + Debug,
     F: Fn() -> Option<T>,
     C: Fn(T) -> Result<()>,
 {
@@ -42,7 +44,7 @@ where
 
 impl<T, F, C> ConsensusAgent<T, F, C>
 where
-    T: Serialize + DeserializeOwned + Clone,
+    T: Serialize + DeserializeOwned + Clone + Debug,
     F: Fn() -> Option<T>,
     C: Fn(T) -> Result<()>,
 {
@@ -109,7 +111,10 @@ where
         self.last_broadcast = Some(self.current_round);
 
         let callback = &self.decision_callback;
+        let decided_value = proposal.value.clone();
         callback(proposal.value)?;
+
+        trace!("Agent {} decided {:?}", self.id, decided_value);
         Ok(())
     }
 
@@ -148,15 +153,20 @@ where
             Message::ConsensusEvent(ConsensusEvent::Decided(new_proposal)) => {
                 self.advance_round()?;
 
+                let decided_value = new_proposal.value.clone();
+                let proposer = new_proposal.proposer.clone();
+
                 if new_proposal.proposer > self.id {
                     return Ok(());
                 }
 
                 if let Some(current_proposal) = &self.proposal {
                     if new_proposal.proposer > current_proposal.proposer {
+                        trace!("Agent {} decided {:?}, proposed by {}", self.id, decided_value, proposer);
                         self.proposal = Some(new_proposal);
                     }
                 }
+
             }
         }
 

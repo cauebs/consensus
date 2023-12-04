@@ -5,6 +5,8 @@ use consensus::{hierarchical_consensus::ConsensusAgent, parse_addr};
 use rand::Rng;
 
 fn main() -> Result<()> {
+    env_logger::init();
+    
     let mut args = args().skip(1);
     let usage = "Usage: agent <bind-host>:<bind-port> <registry-host>:<registry-port>";
 
