@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use log::trace;
+use log::{info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{deserialize_from, serialize_into, Peer, PeerId};
@@ -47,7 +47,7 @@ impl Server {
     fn write_peers(&self, peers: &[Peer]) -> Result<()> {
         trace!("Server writing peers");
         let file_contents = serde_json::to_vec_pretty(&peers)?;
-        Ok(fs::write(&self.peers_file, &file_contents)?)
+        Ok(fs::write(&self.peers_file, file_contents)?)
     }
 
     pub fn run(&mut self, addr: impl ToSocketAddrs) -> Result<()> {
@@ -73,10 +73,8 @@ impl Server {
 
         let id = peers.last().map(|peer| peer.id + 1).unwrap_or_default();
         peers.push(Peer::new(id, peer_addr));
-
         self.write_peers(&peers)?;
 
-        trace!("Server registered with id {}", id);
         Ok(id)
     }
 }
@@ -99,7 +97,7 @@ impl Client {
             panic!()
         };
 
-        trace!("Client registered with id {}", id);
+        info!("Client registered with id {}", id);
         Ok(id)
     }
 

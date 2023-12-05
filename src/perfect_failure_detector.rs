@@ -8,6 +8,7 @@ use std::{
 
 use crate::{broadcast, deserialize_from, registry, Message, PeerId};
 use anyhow::Result;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 
 pub struct PerfectFailureDetector {
@@ -42,6 +43,7 @@ impl PerfectFailureDetector {
     fn listen_to_heartbeats(&self) -> Result<()> {
         for connection in TcpListener::bind(self.bind_addr)?.incoming() {
             let heartbeat: Heartbeat = deserialize_from(connection?)?;
+            debug!("Received heartbeat from peer {}", heartbeat.peer_id);
             self.set_alive(heartbeat.peer_id, true);
         }
         unreachable!()
@@ -61,17 +63,19 @@ impl PerfectFailureDetector {
                 let confirmed_alive = self.set_alive(peer.id, false);
                 if confirmed_alive || !known_peers.contains(&peer.id) {
                     known_peers.insert(peer.id);
-                    if peer
-                        .send(Message::RequestHeartbeat::<()> {
-                            requester: self.bind_addr,
-                        })
-                        .is_ok()
-                    {
-                        continue;
-                    }
+                    let request = Message::RequestHeartbeat::<()> {
+                        requester: self.bind_addr,
+                    };
+                    debug!("Requesting heartbeat from peer {}", peer.id);
+                    let _ = peer.send(request);
+                    continue;
                 }
 
                 assumed_dead.insert(peer.id);
+                error!(
+                    "Peer {} failed to respond with heartbeat, assumed crashed",
+                    peer.id
+                );
                 broadcast(Message::InformCrash::<()>(peer.id), peers.iter().cloned());
             }
 

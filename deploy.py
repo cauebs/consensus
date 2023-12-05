@@ -7,16 +7,17 @@ from subprocess import Popen, run
 from sys import argv
 from time import sleep
 from typing import Iterator
+import random
 
 
-def bind_addresses(ip: str = "0.0.0.0", starting_port: int = 5000) -> Iterator[str]:
+def bind_addresses(ip: str = "0.0.0.0", starting_port: int = 8000) -> Iterator[str]:
     for port in count(start=starting_port):
         yield f"{ip}:{port}"
 
 
 def start_bin(name: str, args: list[str] = []) -> Popen:
     print(f"!!! starting {name} with {args}")
-    command = split(f"cargo run --release --quiet --bin {name}") + args
+    command = split(f"./target/release/{name}") + args
     return Popen(command)
 
 
@@ -34,10 +35,24 @@ def deploy(num_agents: int, heartbeat_timeout: int) -> None:
     peers_file = Path("/tmp/consensus-registry")
     peers_file.unlink(missing_ok=True)
     services["registry"] = start_bin("registry", [registry_addr, str(peers_file)])
-    sleep(1)
 
-    for _ in range(num_agents):
-        start_bin("agent", [next(address), registry_addr])
+    labels = [
+        "Pai",
+        "Mãe",
+        "Filho",
+        "Filha",
+        "Primo",
+        "Prima",
+        "Tio",
+        "Tia",
+        "Vó",
+        "Vô",
+        "Sobrinha",
+        "Cunhado",
+    ]
+    random.shuffle(labels)
+    for label in labels[:num_agents]:
+        start_bin("agent", [label, next(address), registry_addr])
 
     services["pfd"] = start_bin(
         "pfd", [next(address), registry_addr, str(heartbeat_timeout)]

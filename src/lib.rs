@@ -5,6 +5,7 @@ use std::{
 };
 
 use hierarchical_consensus::ConsensusEvent;
+use log::{debug, error};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
@@ -26,7 +27,7 @@ pub struct Peer {
     addr: SocketAddr,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Message<T: Clone + Debug> {
     RequestHeartbeat { requester: SocketAddr },
     InformCrash(PeerId),
@@ -74,6 +75,9 @@ pub fn try_broadcast<M: Serialize>(
 
 pub fn broadcast<M: Serialize>(message: M, peers: impl Iterator<Item = Peer>) {
     for peer in peers {
-        let _ = peer.send(&message);
+        match peer.send(&message) {
+            Ok(_) => debug!("Sending broadcast to peer {}", peer.id),
+            Err(_) => error!("Failed to send broadcast to peer {}", peer.id),
+        }
     }
 }
